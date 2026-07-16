@@ -1,0 +1,163 @@
+# CrewAI Agent Coding Skills
+
+中文 | [English](README.md)
+
+一组面向 Codex/CrewAI 的可复用 Skills，用于设计、规划、编码、调试、审查、观测、部署和交接 AI Agent 项目。
+
+这是一组面向 AI Agent 工程开发的开源 Skills，重点覆盖 CrewAI 项目从想法到上线的完整工程闭环：需求澄清、方案设计、代码实现、调试、可观测性、代码审查、部署和 PR/Commit 交付。
+
+## 更新内容
+
+这个版本把 CrewAI skills 整理成一套端到端的开源 Agent 工程流程：
+
+- 重写了 8 个 VibeCoding skills，让 CrewAI 全流程开发路径更清晰。
+- 为每个 skill 新增 `agents/openai.yaml` 元数据，便于工具展示名称、简介和默认提示词。
+- 强化从想法到发布的闭环：brainstorm、plan、codegen、debug、observability、review、deploy、commit。
+- 增加证据优先的调试流程，覆盖 CrewAI agent、task、flow、memory、deploy、chat、tracing 等故障。
+- 增加生产交付门槛：测试、eval、密钥安全、可观测性、冒烟测试、回滚和 PR 交接。
+- 增加适合 GitHub 开源项目使用的安装、示例、贡献和项目介绍文档。
+
+## Agent 工程师要懂什么
+
+Agent 工程不只是写 Prompt。一个能上线的 Agent 需要产品判断、软件工程、工具契约、测试、安全、部署和运维能力。
+
+从浅到深，Agent 工程师需要理解这些能力：
+
+- **基础编程能力**：Python 或 TypeScript、HTTP API、JSON schema、Git、测试、环境变量和密钥管理。
+- **Prompt 和上下文工程**：系统指令、结构化输出、上下文窗口、工具描述、Prompt 版本管理和失败场景。
+- **工具调用**：严格的输入 schema、权限、重试、超时、幂等、副作用控制和人工确认。
+- **RAG 和知识库**：文档解析、切分、embedding、检索、重排、引用、访问控制和 groundedness 评估。
+- **工作流编排**：固定步骤交给确定性代码，模糊判断交给 LLM，同时设计状态、分支、恢复和停止条件。
+- **CrewAI 和多 Agent 设计**：agents、tasks、crews、flows、`agents.yaml`、`tasks.yaml`、`@start`、`@listen`、`@router`、memory、planning 和 delegation。
+- **测试和评估**：单元测试、工具契约测试、集成测试、离线 eval、安全探针、回归集和发布门槛。
+- **调试能力**：复现故障、查看 trace/log/tool output、隔离失败层、做最小修复并添加回归用例。
+- **可观测性和运维**：trace、日志、指标、token/成本跟踪、告警、runbook、冒烟测试、回滚和事故复盘。
+- **交付纪律**：代码审查、清晰 commit、PR 描述、changelog、部署说明和开源文档。
+
+## Skills
+
+| Skill | 用途 |
+| --- | --- |
+| `vibecoding-brainstorm` | 把粗略产品或 Agent 想法转成结构化 feature brief。 |
+| `vibecoding-plan` | 生成 CrewAI 实施计划，包括 agents、tasks、flows、测试和发布门槛。 |
+| `vibecoding-codegen` | 按 CrewAI task 规格实现生产级代码，并补充测试和验证。 |
+| `vibecoding-debug` | 诊断并修复 CrewAI agent、task、flow、memory、deploy、chat、tracing 故障。 |
+| `vibecoding-observability` | 增加 trace、日志、指标、成本跟踪和生产 runbook。 |
+| `vibecoding-review` | 审查 CrewAI 和 Agent 代码中的 bug、安全、权限、测试和可运维性问题。 |
+| `vibecoding-deploy` | 准备、验证、部署、监控和回滚 CrewAI 应用。 |
+| `vibecoding-commit` | 生成 Conventional Commits、PR 描述、changelog 和交接说明。 |
+
+## 推荐工作流
+
+```text
+Idea
+  -> vibecoding-brainstorm
+  -> vibecoding-plan
+  -> vibecoding-codegen
+  -> vibecoding-debug
+  -> vibecoding-observability
+  -> vibecoding-review
+  -> vibecoding-deploy
+  -> vibecoding-commit
+  -> Pull Request / Release
+```
+
+不是每个任务都必须跑完整流程。小改动可以直接从当前阶段对应的 skill 开始。
+
+## 仓库结构
+
+```text
+crewskills/
+  skills/
+    vibecoding-brainstorm/
+      SKILL.md
+      agents/openai.yaml
+    vibecoding-plan/
+      SKILL.md
+      agents/openai.yaml
+    ...
+LICENSE
+README.md
+README.zh-CN.md
+```
+
+每个 skill 都是自包含的：
+
+- `SKILL.md` 定义何时使用该 skill，以及它应该如何工作。
+- `agents/openai.yaml` 提供 UI 元数据，例如展示名称、简短描述和默认提示词。
+
+## 安装
+
+把 skill 文件夹复制到本地 Codex skills 目录：
+
+```bash
+cp -r crewskills/skills/* ~/.codex/skills/
+```
+
+Windows PowerShell：
+
+```powershell
+Copy-Item -Recurse -Force .\crewskills\skills\* "$env:USERPROFILE\.codex\skills\"
+```
+
+然后按名称调用 skill：
+
+```text
+Use $vibecoding-plan to convert this feature brief into a CrewAI implementation plan.
+```
+
+## 示例 Prompt
+
+```text
+Use $vibecoding-brainstorm to turn my AI customer support idea into a feature brief.
+```
+
+```text
+Use $vibecoding-plan to design agents.yaml, tasks.yaml, and a Flow for this feature.
+```
+
+```text
+Use $vibecoding-debug to diagnose why my CrewAI Flow hangs after the research task.
+```
+
+```text
+Use $vibecoding-review to review these CrewAI changes before deploy.
+```
+
+## 设计原则
+
+- 证据优先：改代码前先查看真实文件、日志、diff、trace 和测试输出。
+- 最小可行架构：除非有明确收益，不要默认使用复杂多 Agent。
+- 输出可测试：每个计划、任务和实现都应有验收标准或验证命令。
+- 生产可用：包含可观测性、回滚、密钥安全和人工确认路径。
+- 清晰交接：总结变更、测试、风险、部署说明和 PR 上下文。
+
+## 贡献
+
+欢迎贡献。适合贡献的内容包括：
+
+- 新的 CrewAI 调试模式。
+- 更好的 Flow 和 task planning 模板。
+- 更多可观测性集成。
+- 测试和 eval 示例。
+- 文档改进。
+
+贡献时请保持 skill 简洁、实用。Skill 应该包含 Agent 可以直接执行的流程，而不是泛泛的宣传语言。
+
+## GitHub About
+
+短描述：
+
+```text
+Open-source Codex/CrewAI skills for full-cycle AI agent development, debugging, review, observability, deployment, and PR handoff.
+```
+
+建议 topics：
+
+```text
+crewai, codex, ai-agents, agent-engineering, llm, agent-skills, vibe-coding, observability, evals, devtools, open-source
+```
+
+## License
+
+本项目基于 MIT License 开源。详见 [LICENSE](LICENSE)。
