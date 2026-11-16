@@ -2,7 +2,8 @@
 """Create starter planning artifacts for an AI agent project."""
 
 import argparse
-from pathlib import Path
+import os
+from pathlib import Path, PureWindowsPath
 from textwrap import dedent
 
 
@@ -883,11 +884,35 @@ def title_from_name(name: str) -> str:
     return " ".join(part.capitalize() for part in name.replace("_", "-").split("-") if part)
 
 
+def check_output(path: Path, project_dir: Path, overwrite: bool) -> None:
+    """Reject conflicts and links before any scaffold file is opened."""
+    try:
+        relative = path.relative_to(project_dir)
+    except ValueError as error:
+        raise ValueError("Scaffold paths must stay inside the project directory.") from error
+    for parent in (project_dir, *relative.parents):
+        candidate = parent if parent == project_dir else project_dir / parent
+        if candidate.is_symlink():
+            raise ValueError(f"Refusing symbolic-link directory: {candidate.name}")
+        if candidate.exists() and not candidate.is_dir():
+            raise ValueError(f"Output parent is not a directory: {candidate.name}")
+    if path.is_symlink():
+        raise ValueError(f"Refusing symbolic-link output: {path.name}")
+    if path.exists() and (not overwrite or not path.is_file()):
+        raise FileExistsError(f"Output already exists: {path.name}; use --overwrite for regular files.")
+
+
 def write_file(path: Path, content: str, overwrite: bool) -> None:
-    if path.exists() and not overwrite:
-        raise FileExistsError(f"{path} already exists. Re-run with --overwrite to replace it.")
+    if path.is_symlink():
+        raise ValueError(f"Refusing symbolic-link output: {path.name}")
     rendered = dedent(content).replace("{title}", title_from_name(path.parent.name))
-    path.write_text(rendered.strip() + "\n", encoding="utf-8")
+    # Exclusive creation avoids overwriting a file created after the preflight.
+    # Where supported, O_NOFOLLOW also refuses a substituted leaf symlink.
+    flags = os.O_WRONLY | os.O_CREAT | (os.O_TRUNC if overwrite else os.O_EXCL)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags, 0o666)
+    with os.fdopen(fd, "w", encoding="utf-8") as stream:
+        stream.write(rendered.strip() + "\n")
 
 
 def main() -> None:
@@ -897,11 +922,30 @@ def main() -> None:
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing scaffold files.")
     args = parser.parse_args()
 
-    project_dir = Path(args.output).resolve() / args.name
-    project_dir.mkdir(parents=True, exist_ok=True)
-
-    for relative, content in FILES.items():
-        write_file(project_dir / relative, content, args.overwrite)
+    if (args.name in {".", ".."} or not args.name.strip()
+            or any(c in args.name for c in "/\\")
+            or any(ord(c) < 32 for c in args.name)
+            or PureWindowsPath(args.name).drive):
+        parser.error("--name must be a single folder name, without path separators or control characters.")
+    try:
+        output_dir = Path(args.output).resolve()
+        if output_dir.exists() and not output_dir.is_dir():
+            raise ValueError("--output must name a directory.")
+        project_dir = output_dir / args.name
+        for relative in FILES:
+            component = Path(relative)
+            if component.is_absolute() or ".." in component.parts:
+                raise ValueError("Scaffold paths must be relative to the project directory.")
+            check_output(project_dir / component, project_dir, args.overwrite)
+        project_dir.mkdir(parents=True, exist_ok=True)
+        for relative, content in FILES.items():
+            target = project_dir / relative
+            # Check again before creating parents or opening a file.
+            check_output(target, project_dir, args.overwrite)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            write_file(target, content, args.overwrite)
+    except (OSError, RuntimeError, ValueError) as error:
+        parser.error(str(error))
 
     print(f"Created agent planning scaffold at {project_dir}")
 
